@@ -1328,16 +1328,10 @@ html, body {
     });
 
     document.addEventListener("DOMContentLoaded", () => {
-  renderRecents();
-  renderFavMarkers();
-  ensureModeBoxCreated();
-
-  // 📱 On phones: ask for location once
-  if (window.innerWidth <= 600) {
-    getMyLocation();   // browser will show the permission popup once
-  }
-});
-
+      renderRecents();
+      renderFavMarkers();
+      ensureModeBoxCreated();
+    });
   </script>
 </body>
 </html>
