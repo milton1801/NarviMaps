@@ -291,132 +291,132 @@
 /* PHONE LAYOUT – only destination search */
 @media (max-width: 600px) {
 
-html, body {
-  height: 100%;
-  margin: 0;
-  overflow-y: auto;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-}
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow-y: auto;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
 
-/* Full-screen map behind */
-#map {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-}
+  /* Full-screen map behind */
+  #map {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
 
-/* Compact panel near top, like a single search bar */
-.panel {
-  position: fixed;
-  top: 120px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  min-height: auto;
-  background: rgba(255,255,255,0.97);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.28);
-  padding: 10px 12px 14px;
-  z-index: 7;
-}
+  /* Compact panel near top, like a single search bar */
+  .panel {
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    min-height: auto;
+    background: rgba(255,255,255,0.97);
+    border-radius: 16px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+    padding: 10px 12px 14px;
+    z-index: 7;
+  }
 
-.panel h3 {
-  font-size: 18px;
-  margin-bottom: 6px;
-}
+  .panel h3 {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
 
-.title-extra {
-  font-size: 12px;
-  padding: 2px 8px;
-}
+  .title-extra {
+    font-size: 12px;
+    padding: 2px 8px;
+  }
 
-.row {
-  margin-bottom: 8px;
-}
+  .row {
+    margin-bottom: 8px;
+  }
 
-/* hide the FROM row on phone */
-.row-from {
-  display: none;
-}
+  /* hide the FROM row on phone */
+  .row-from {
+    display: none;
+  }
 
-.panel input {
-  width: 100%;
-  height: 36px;
-  font-size: 14px;
-  padding: 6px 9px;
-}
+  .panel input {
+    width: 100%;
+    height: 36px;
+    font-size: 14px;
+    padding: 6px 9px;
+  }
 
-.panel button {
-  height: 40px;
-  font-size: 15px;
-  margin-top: 4px;
-}
+  .panel button {
+    height: 40px;
+    font-size: 15px;
+    margin-top: 4px;
+  }
 
-/* hide all the extra stuff on mobile */
-.summary,
-.fav-bar,
-#latest-trips-toggle,
-#latest-trips,
-#poi-results,
-.poi-bar {
-  display: none !important;
-}
+  /* hide all the extra stuff on mobile */
+  .summary,
+  .fav-bar,
+  #latest-trips-toggle,
+  #latest-trips,
+  #poi-results,
+  .poi-bar {
+    display: none !important;
+  }
 
-/* weather centered at very top */
-.weather {
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 13px;
-  padding: 4px 8px;
-  border-radius: 999px;
-}
+  /* weather centered at very top */
+  .weather {
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 999px;
+  }
 
-/* top buttons smaller */
-#my-location-btn,
-#toggle-theme {
-  top: 60px;
-  font-size: 11px;
-  padding: 6px 8px;
-}
+  /* top buttons smaller */
+  #my-location-btn,
+  #toggle-theme {
+    top: 60px;
+    font-size: 11px;
+    padding: 6px 8px;
+  }
 
-#my-location-btn {
-  left: 10px;
-  right: auto;
-}
+  #my-location-btn {
+    left: 10px;
+    right: auto;
+  }
 
-#toggle-theme {
-  right: 10px;
-  left: auto;
-}
+  #toggle-theme {
+    right: 10px;
+    left: auto;
+  }
 
-/* mode box behaves like a full-screen dialog */
-.mode-box {
-  top: 80px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  max-height: calc(100vh - 80px);
-  border-radius: 18px 18px 0 0;
-  box-shadow: 0 -8px 24px rgba(0,0,0,0.35);
-  overflow-y: auto;
-}
+  /* mode box behaves like a full-screen dialog */
+  .mode-box {
+    top: 80px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: calc(100vh - 80px);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.35);
+    overflow-y: auto;
+  }
 
-.mode-btn {
-  height: 44px;
-  font-size: 14px;
-}
+  .mode-btn {
+    height: 44px;
+    font-size: 14px;
+  }
 
-.mode-go-btn {
-  height: 44px;
-  font-size: 13px;
-}
+  .mode-go-btn {
+    height: 44px;
+    font-size: 13px;
+  }
 
-.mode-directions {
-  max-height: 220px;
-  font-size: 13px;
-}
+  .mode-directions {
+    max-height: 220px;
+    font-size: 13px;
+  }
 }
 
 
@@ -1328,10 +1328,16 @@ html, body {
     });
 
     document.addEventListener("DOMContentLoaded", () => {
-      renderRecents();
-      renderFavMarkers();
-      ensureModeBoxCreated();
-    });
+  renderRecents();
+  renderFavMarkers();
+  ensureModeBoxCreated();
+
+  // 📱 On phones: ask for location once
+  if (window.innerWidth <= 600) {
+    getMyLocation();   // browser will show the permission popup once
+  }
+});
+
   </script>
 </body>
 </html>
