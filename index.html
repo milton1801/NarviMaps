@@ -288,41 +288,41 @@
     }
 
     /* PHONE LAYOUT – Apple Maps style */
+/* PHONE LAYOUT – only destination search */
 @media (max-width: 600px) {
 
-/* allow scrolling if panel is tall */
 html, body {
   height: 100%;
+  margin: 0;
   overflow-y: auto;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-/* map full-screen */
+/* Full-screen map behind */
 #map {
   position: fixed;
   inset: 0;
   z-index: 0;
 }
 
-/* main card as a bottom sheet */
+/* Compact panel near top, like a single search bar */
 .panel {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: auto;
-  transform: none;
-  width: 100%;
-  max-height: 55vh;                /* takes ~half screen */
-  border-radius: 18px 18px 0 0;    /* rounded top like Apple Maps */
-  padding: 12px 16px 16px;
-  box-shadow: 0 -8px 24px rgba(0,0,0,0.35);
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  min-height: auto;
   background: rgba(255,255,255,0.97);
-  overflow-y: auto;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+  padding: 10px 12px 14px;
+  z-index: 7;
 }
 
 .panel h3 {
-  font-size: 20px;
-  margin-bottom: 4px;
+  font-size: 18px;
+  margin-bottom: 6px;
 }
 
 .title-extra {
@@ -334,9 +334,14 @@ html, body {
   margin-bottom: 8px;
 }
 
+/* hide the FROM row on phone */
+.row-from {
+  display: none;
+}
+
 .panel input {
   width: 100%;
-  height: 34px;
+  height: 36px;
   font-size: 14px;
   padding: 6px 9px;
 }
@@ -347,54 +352,30 @@ html, body {
   margin-top: 4px;
 }
 
-.summary {
-  font-size: 13px;
-  margin-top: 6px;
+/* hide all the extra stuff on mobile */
+.summary,
+.fav-bar,
+#latest-trips-toggle,
+#latest-trips,
+#poi-results,
+.poi-bar {
+  display: none !important;
 }
 
-/* favorites smaller inside the sheet */
-.fav-bar {
-  margin-top: 6px;
-  gap: 8px;
-}
-
-.chip {
-  width: 36px;
-  height: 36px;
-  font-size: 18px;
-}
-
-.chip-small {
-  width: 32px;
-  height: 32px;
-  font-size: 16px;
-}
-
-.latest-link {
-  font-size: 13px;
-}
-
-.latest-list {
-  max-height: 90px;
-}
-
-#poi-results {
-  margin-top: 8px;
-}
-
-/* weather chip centered at very top */
+/* weather centered at very top */
 .weather {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 13px;
   padding: 4px 8px;
+  border-radius: 999px;
 }
 
 /* top buttons smaller */
 #my-location-btn,
 #toggle-theme {
-  top: 54px;
+  top: 60px;
   font-size: 11px;
   padding: 6px 8px;
 }
@@ -409,33 +390,15 @@ html, body {
   left: auto;
 }
 
-/* POI bar as a pill under the weather */
-.poi-bar {
-  top: 96px;
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  max-width: calc(100% - 20px);
-  background: rgba(255,255,255,0.96);
-  border-radius: 999px;
-  padding: 4px 6px;
-}
-
-.poi-btn {
-  font-size: 12px;
-  padding: 4px 8px;
-}
-
-/* mode box also becomes a sheet */
+/* mode box behaves like a full-screen dialog */
 .mode-box {
-  top: 70px;
+  top: 80px;
   left: 0;
   right: 0;
   bottom: 0;
   width: 100%;
-  transform: none;
+  max-height: calc(100vh - 80px);
   border-radius: 18px 18px 0 0;
-  max-height: calc(100vh - 70px);
   box-shadow: 0 -8px 24px rgba(0,0,0,0.35);
   overflow-y: auto;
 }
@@ -448,14 +411,14 @@ html, body {
 .mode-go-btn {
   height: 44px;
   font-size: 13px;
-  padding: 6px 12px;
 }
 
 .mode-directions {
-  max-height: 200px;
+  max-height: 220px;
   font-size: 13px;
 }
 }
+
 
 
 
@@ -471,10 +434,11 @@ html, body {
   <div class="panel" id="left-panel">
     <h3> NarviMaps <span id="user-location" class="title-extra"></span> </h3>
 
-    <div class="row">
+    <div class="row row-from">
       <input id="from" placeholder="From..." autocomplete="off" />
       <ul class="ac-list" id="from-list"></ul>
     </div>
+    
 
     <div class="row">
       <input id="to" placeholder="To..." autocomplete="off" />
@@ -1364,10 +1328,16 @@ html, body {
     });
 
     document.addEventListener("DOMContentLoaded", () => {
-      renderRecents();
-      renderFavMarkers();
-      ensureModeBoxCreated();
-    });
+  renderRecents();
+  renderFavMarkers();
+  ensureModeBoxCreated();
+
+  // 📱 On phones: ask for location once
+  if (window.innerWidth <= 600) {
+    getMyLocation();   // browser will show the permission popup once
+  }
+});
+
   </script>
 </body>
 </html>
