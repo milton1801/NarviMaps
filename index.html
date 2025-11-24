@@ -336,11 +336,30 @@
 }
 
 /* mobile tweak for HUD */
+/* mobile tweak for HUD */
 @media (max-width: 600px) {
   .nav-hud {
-    min-width: 90%;
+    top: 52px;                 /* más abajo, debajo del notch/URL */
+    min-width: 82%;            /* un poco más corta */
+    padding: 4px 10px;         /* menos padding = barra más baja */
+    font-size: 11px;
+  }
+
+  .nav-main {
+    flex-direction: row;       /* todo en una sola línea */
+    align-items: center;
+    gap: 6px;
+  }
+
+  .nav-line {
+    font-size: 12px;
+  }
+
+  .nav-arrival {
+    font-size: 11px;
   }
 }
+
 
 
     /* PHONE LAYOUT – Apple Maps style */
