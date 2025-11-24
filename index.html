@@ -336,14 +336,40 @@
 }
 
 /* mobile tweak for HUD */
-/* mobile tweak for HUD */
 @media (max-width: 600px) {
-  .nav-hud {
-    top: 52px;                 /* más abajo, debajo del notch/URL */
-    min-width: 82%;            /* un poco más corta */
-    padding: 4px 10px;         /* menos padding = barra más baja */
-    font-size: 11px;
-  }
+
+/* NAV HUD at the bottom on mobile */
+.nav-hud {
+  top: auto;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 90%;
+}
+@media (max-width: 600px) {
+
+/* Make mode buttons smaller and 2 per row on mobile */
+.mode-grid {
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+
+/* Smaller weather pill on mobile */
+.weather {
+  transform: translateX(-50%) scale(0.8);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+}
+
+.mode-btn {
+  flex: 0 0 calc(50% - 6px);  /* 2 per row */
+  height: 40px;
+  font-size: 13px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+}
 
   .nav-main {
     flex-direction: row;       /* todo en una sola línea */
