@@ -1248,6 +1248,13 @@
     function enterNavigationMode() {
   if (!lastRouteInfo || navActive) return;
   navActive = true;
+  // Hide the full panel in navigation mode
+const panel = document.getElementById("left-panel");
+if (panel) panel.style.display = "none";
+// Show the panel again when navigation ends
+const pnel = document.getElementById("left-panel");
+if (panel) panel.style.display = "block";
+
 
   // Show bottom HUD
   const hud = document.getElementById("nav-hud");
@@ -1257,7 +1264,7 @@
   }
 
   // Hide side/mode panels
-  const panel = document.getElementById("left-panel");
+  const pael = document.getElementById("left-panel");
   const mb = document.getElementById("mode-box");
   if (panel) panel.classList.add("hidden");
   if (mb) mb.classList.remove("show");
