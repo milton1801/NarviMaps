@@ -211,25 +211,21 @@
       background: #eef2ff;
       color: #3730a3;
     }
-
-    .weather-inline {
-  font-size: 12px;
-  color: #111827;
-  background: #f3f4f6;
-  padding: 3px 8px;
-  border-radius: 999px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    .weather-bar {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #111827;
+  background: rgba(255,255,255,0.97);
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+  margin-bottom: 8px;
 }
 
-.weather-inline .chip {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: #e5e7eb;
-  margin-left: 2px;
-}
+  
 
 
     /* TOP RIGHT TOGGLE */
@@ -743,12 +739,15 @@
 
   <!-- LEFT PANEL -->
   <div class="panel" id="left-panel">
+    <!-- NEW: weather bar inside the card, above the title -->
+    <div id="weather-bar" class="weather-bar">Loading…</div>
+  
     <h3>
-      <span>
-        NarviMaps <span id="user-location" class="title-extra"></span>
-      </span>
-      <span id="weather-inline" class="weather-inline">Loading weather…</span>
+      NarviMaps
+      <span id="user-location" class="title-extra"></span>
     </h3>
+    <!-- rest of the panel stays the same -->
+  
     
 
     <div class="row row-from">
@@ -783,7 +782,7 @@
 
 
   <!-- Theme toggle -->
-  <button id="toggle-theme">🌙 Night Mode</button>
+  <button id="toggle-theme">🌙 </button>
 
   <!-- POI buttons -->
   <div class="poi-bar" id="poi-bar">
@@ -836,6 +835,8 @@
     let navActive = false;
     let navWatchId = null;
     let navLastUpdateTs = 0;
+    let navMarker = null;
+
 
     /* MAP INIT */
     const map = new maplibregl.Map({
@@ -1243,97 +1244,111 @@
     }
 
     function enterNavigationMode() {
-      if (!lastRouteInfo || navActive) return;
-      navActive = true;
+  if (!lastRouteInfo || navActive) return;
+  navActive = true;
 
-      const hud = document.getElementById("nav-hud");
-      if (hud) {
-        hud.classList.add("show");
-        refreshNavHUD();
+  // Show bottom HUD
+  const hud = document.getElementById("nav-hud");
+  if (hud) {
+    hud.classList.add("show");
+    refreshNavHUD();
+  }
+
+  // Hide side/mode panels
+  const panel = document.getElementById("left-panel");
+  const mb = document.getElementById("mode-box");
+  if (panel) panel.classList.add("hidden");
+  if (mb) mb.classList.remove("show");
+
+  // Create / position car marker at starting point
+  if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
+    const startLngLat = [state.from.lon, state.from.lat];
+
+    if (!navMarker) {
+      const car = document.createElement("div");
+      car.textContent = "🚗";
+      car.style.fontSize = "22px";
+      navMarker = new maplibregl.Marker({ element: car, anchor: "center" })
+        .setLngLat(startLngLat)
+        .addTo(map);
+    } else {
+      navMarker.setLngLat(startLngLat);
+    }
+
+    map.easeTo({
+      center: startLngLat,
+      zoom: 16,
+      pitch: 55,
+      bearing: 0,
+      duration: 800
+    });
+  }
+
+  // Follow user movement
+  if (navigator.geolocation) {
+    navWatchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude, heading } = pos.coords;
+      const lngLat = [longitude, latitude];
+
+      // Move car icon
+      if (navMarker) {
+        navMarker.setLngLat(lngLat);
+      } else {
+        const car = document.createElement("div");
+        car.textContent = "🚗";
+        car.style.fontSize = "22px";
+        navMarker = new maplibregl.Marker({ element: car, anchor: "center" })
+          .setLngLat(lngLat)
+          .addTo(map);
       }
 
-      document.getElementById("left-panel").classList.add("hidden");
-      document.getElementById("mode-box").classList.remove("show");
-
+      // Move / rotate camera
       map.easeTo({
-        zoom: 15.5,
+        center: lngLat,
+        zoom: 16,
         pitch: 55,
+        bearing: Number.isFinite(heading) ? heading : map.getBearing(),
         duration: 800
       });
 
-      if (navigator.geolocation) {
-        navWatchId = navigator.geolocation.watchPosition(pos => {
-          const { latitude, longitude } = pos.coords;
-          map.easeTo({
-            center: [longitude, latitude],
-            duration: 800
-          });
-          updateRemainingFromPosition(latitude, longitude);
-        }, err => {
-          console.warn("nav watch error", err);
-        });
-      }
-    }
+      // Update remaining distance + ETA
+      updateRemainingFromPosition(latitude, longitude);
+    }, err => {
+      console.warn("nav watch error", err);
+    }, {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+      timeout: 10000
+    });
+  }
+}
 
-    function exitNavigationMode() {
-      if (!navActive) return;
-      navActive = false;
 
-      const hud = document.getElementById("nav-hud");
-      if (hud) hud.classList.remove("show");
+function exitNavigationMode() {
+  if (!navActive) return;
+  navActive = false;
 
-      if (navWatchId !== null && navigator.geolocation) {
-        navigator.geolocation.clearWatch(navWatchId);
-        navWatchId = null;
-      }
+  const hud = document.getElementById("nav-hud");
+  if (hud) hud.classList.remove("show");
 
-      map.easeTo({
-        pitch: 0,
-        bearing: 0,
-        duration: 600
-      });
-    }
+  if (navWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(navWatchId);
+    navWatchId = null;
+  }
 
-    /* RECENTS + FAVORITES + POI (unchanged logic from your version) */
-    function saveRecentSearch(fromLabel, toLabel) {
-      if (!fromLabel || !toLabel) return;
-      const MAX = 5; const key = "narvimaps_recents";
-      let list = JSON.parse(localStorage.getItem(key) || "[]");
-      list = list.filter(item => !(item.from === fromLabel && item.to === toLabel));
-      list.unshift({ from: fromLabel, to: toLabel, time: Date.now() });
-      if (list.length > MAX) list = list.slice(0, MAX);
-      localStorage.setItem(key, JSON.stringify(list));
-      renderRecents();
-    }
+  // Remove car marker
+  if (navMarker) {
+    navMarker.remove();
+    navMarker = null;
+  }
 
-    function renderRecents() {
-      const key = "narvimaps_recents";
-      const list = JSON.parse(localStorage.getItem(key) || "[]");
-      const box = document.getElementById("latest-trips");
-      const toggle = document.getElementById("latest-trips-toggle");
-      if (!box || !toggle) return;
-      box.innerHTML = "";
-      if (!list.length) {
-        box.style.display = "none";
-        toggle.style.display = "none";
-        return;
-      }
-      toggle.style.display = "inline-block";
-      list.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "latest-item";
-        div.textContent = `${item.from} → ${item.to}`;
-        div.onclick = () => {
-          const fromInput = document.getElementById("from");
-          const toInput = document.getElementById("to");
-          if (fromInput) fromInput.value = item.from;
-          if (toInput) toInput.value = item.to;
-          state.from = null;
-          state.to = null;
-        };
-        box.appendChild(div);
-      });
-    }
+  map.easeTo({
+    pitch: 0,
+    bearing: 0,
+    duration: 600
+  });
+}
+
 
     (function initLatestTripsToggle(){
       const toggle = document.getElementById("latest-trips-toggle");
@@ -1538,26 +1553,30 @@
     const WMO_EMOJI = { 0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌦️",55:"🌦️",61:"🌧️",63:"🌧️",65:"🌧️",71:"🌨️",73:"🌨️",75:"🌨️",80:"🌧️",81:"🌧️",82:"⛈️",95:"⛈️" };
 
     async function showWeather(lat, lon){
-  const el = document.getElementById("weather-inline");
+  const el = document.getElementById("weather-bar");
   if (!el) return;
+
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`;
     const r = await fetch(url);
     const j = await r.json();
+
     const t = j.current?.temperature_2m;
     const code = j.current?.weather_code;
-    const label = WMO[code] ?? "Weather";
     const icon = WMO_EMOJI[code] ?? "🌡️";
+
     if (typeof t === "number") {
-      el.innerHTML = `${icon} ${label} <span class="chip">${Math.round(t)}°F</span>`;
+      // 👉 ONLY emoji + number
+      el.textContent = `${icon} ${Math.round(t)}°F`;
     } else {
-      el.textContent = "Weather unavailable";
+      el.textContent = `${icon} --°F`;
     }
   } catch(e) {
     console.warn("Weather fetch failed:", e);
-    el.textContent = "Weather unavailable";
+    el.textContent = "🌡️ --°F";
   }
 }
+
 
 
     async function resolveCity(lat, lon){
@@ -1687,21 +1706,53 @@
     }
 
     document.getElementById("go").addEventListener("click", async () => {
-      const fromLabel = document.getElementById("from")?.value.trim();
-      const toLabel = document.getElementById("to")?.value.trim();
+  const fromLabelInput = document.getElementById("from");
+  const toLabelInput   = document.getElementById("to");
 
-      if ((!state.from || typeof state.from.lat !== "number") && fromLabel) {
-        const g = await geocodeLabel(fromLabel); if (g) state.from = { lat: g.lat, lon: g.lon, label: g.label };
-      }
-      if ((!state.to || typeof state.to.lat !== "number") && toLabel) {
-        const g2 = await geocodeLabel(toLabel); if (g2) state.to = { lat: g2.lat, lon: g2.lon, label: g2.label };
-      }
+  const fromLabel = fromLabelInput?.value.trim();
+  const toLabel   = toLabelInput?.value.trim();
 
-      if (!fromLabel || !toLabel) { alert("Please enter both From and To."); return; }
-      saveRecentSearch(fromLabel, toLabel);
+  // If we don't have a "from" location yet, use live GPS
+  if ((!state.from || typeof state.from.lat !== "number") && navigator.geolocation) {
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000
+        });
+      });
+      const { latitude, longitude } = pos.coords;
+      state.from = { lat: latitude, lon: longitude, label: "My location" };
+      if (fromLabelInput) fromLabelInput.value = "My location";
 
-      showModeChoice();
-    });
+      updateWeatherAndTitle(latitude, longitude);
+    } catch (e) {
+      console.warn("Could not get live 'from' location", e);
+    }
+  }
+
+  if ((!state.to || typeof state.to.lat !== "number") && toLabel) {
+    const g2 = await geocodeLabel(toLabel);
+    if (g2) state.to = { lat: g2.lat, lon: g2.lon, label: g2.label };
+  }
+
+  if (!state.to || !toLabel) {
+    alert("Please enter a destination.");
+    return;
+  }
+
+  if (fromLabelInput && !fromLabelInput.value && state.from?.label) {
+    fromLabelInput.value = state.from.label;
+  }
+
+  const saveFrom = fromLabelInput?.value.trim() || state.from?.label || "";
+  const saveTo   = toLabel || state.to.label || "";
+
+  if (saveFrom && saveTo) saveRecentSearch(saveFrom, saveTo);
+
+  showModeChoice(); // this will open the mode box, then Go → will start navigation
+});
+
 
     /* INITIAL SETUP */
 
