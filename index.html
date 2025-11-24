@@ -430,6 +430,20 @@
 <body>
   <div id="map"></div>
 
+
+  <!-- NAV HUD (mobile only) -->
+  <div id="nav-hud" class="nav-hud">
+    <div class="nav-main">
+      <div class="nav-line">
+        <span class="nav-distance">0.0 mi</span> •
+        <span class="nav-eta">0 min</span>
+      </div>
+      <div class="nav-arrival">Arrive ~ --:--</div>
+    </div>
+    <button id="nav-exit" class="nav-exit">End</button>
+  </div>
+
+
   <!-- LEFT PANEL -->
   <div class="panel" id="left-panel">
     <h3> NarviMaps <span id="user-location" class="title-extra"></span> </h3>
@@ -522,6 +536,10 @@
 
     let currentMode = "drive";
     let modeBoxReady = false;
+    let lastRouteInfo = null;       // distance & time of last route
+    let navActive = false;
+    let navWatchId = null;
+
 
     const map = new maplibregl.Map({
       container: 'map',
@@ -686,226 +704,324 @@
     let segIds = [];
     let startMarker = null;
     let destMarker  = null;
-
     async function drawRoute(modeArg = "drive", showDirections = true) {
 
-      if (!state.from || !state.to ||
-         typeof state.from.lat !== "number" || typeof state.from.lon !== "number" ||
-         typeof state.to.lat !== "number" || typeof state.to.lon !== "number") {
-        alert("Pick both From and To (or let the app geocode typed addresses).");
-        return;
-      }
+if (!state.from || !state.to ||
+   typeof state.from.lat !== "number" || typeof state.from.lon !== "number" ||
+   typeof state.to.lat !== "number" || typeof state.to.lon !== "number") {
+  alert("Pick both From and To (or let the app geocode typed addresses).");
+  return;
+}
 
-      const wp = p => `${p.lat},${p.lon}`;
-      const PURPLE = "#4f46e5", YELLOW = "#f59e0b", RED = "#e11d48";
+const wp = p => `${p.lat},${p.lon}`;
+const PURPLE = "#4f46e5", YELLOW = "#f59e0b", RED = "#e11d48";
 
-      const acceptedModes = new Set(["drive","walk","bicycle","transit"]);
-      const mode = acceptedModes.has(modeArg) ? modeArg : "drive";
+const acceptedModes = new Set(["drive","walk","bicycle","transit"]);
+const mode = acceptedModes.has(modeArg) ? modeArg : "drive";
 
-      const buildURLWithTraffic = (trafficMode) =>
-        `https://api.geoapify.com/v1/routing?waypoints=${wp(state.from)}|${wp(state.to)}` +
-        `&mode=${mode}` + (trafficMode ? `&traffic=${trafficMode}` : ``) + `&apiKey=${KEY}`;
+const buildURLWithTraffic = (trafficMode) =>
+  `https://api.geoapify.com/v1/routing?waypoints=${wp(state.from)}|${wp(state.to)}` +
+  `&mode=${mode}` + (trafficMode ? `&traffic=${trafficMode}` : ``) + `&apiKey=${KEY}`;
 
-      const buildURLNoTraffic = () =>
-        `https://api.geoapify.com/v1/routing?waypoints=${wp(state.from)}|${wp(state.to)}` +
-        `&mode=${mode}&apiKey=${KEY}`;
+const buildURLNoTraffic = () =>
+  `https://api.geoapify.com/v1/routing?waypoints=${wp(state.from)}|${wp(state.to)}` +
+  `&mode=${mode}&apiKey=${KEY}`;
 
-      let res, json;
-      try {
-        if (mode === "drive") {
-          let url = buildURLWithTraffic("approximated");
-          res = await fetch(url);
-          if (!res.ok) {
-            const bodyText = await safeReadText(res);
-            console.error("Routing call failed (approximated):", res.status, bodyText, url);
+let res, json;
+try {
+  if (mode === "drive") {
+    let url = buildURLWithTraffic("approximated");
+    res = await fetch(url);
+    if (!res.ok) {
+      const bodyText = await safeReadText(res);
+      console.error("Routing call failed (approximated):", res.status, bodyText, url);
 
-            url = buildURLWithTraffic("free_flow");
-            res = await fetch(url);
-            if (!res.ok) {
-              const bodyText2 = await safeReadText(res);
-              console.error("Routing call failed (free_flow):", res.status, bodyText2, url);
+      url = buildURLWithTraffic("free_flow");
+      res = await fetch(url);
+      if (!res.ok) {
+        const bodyText2 = await safeReadText(res);
+        console.error("Routing call failed (free_flow):", res.status, bodyText2, url);
 
-              url = buildURLNoTraffic();
-              res = await fetch(url);
-              if (!res.ok) {
-                const bodyText3 = await safeReadText(res);
-                console.error("Routing call failed (no traffic):", res.status, bodyText3, url);
-                throw new Error(`Routing failed (${res.status}): ${bodyText3 || "(no body)"} (url: ${url})`);
-              }
-            }
-          }
-        } else {
-          const url = buildURLNoTraffic();
-          res = await fetch(url);
-          if (!res.ok) {
-            const bodyText = await safeReadText(res);
-            console.error("Routing call failed:", res.status, bodyText, url);
-            throw new Error(`Routing failed (${res.status}): ${bodyText || "(no body)"} (url: ${url})`);
-          }
-        }
-        json = await res.json();
-      } catch (err) {
-        console.error("Routing error:", err);
-        alert("Routing failed. See console for details.\n\n" + (err.message || ""));
-        return;
-      }
-
-      if (!json.features || !json.features.length) {
-        alert("No route found.");
-        return;
-      }
-
-      const feature = json.features[0];
-      const props   = feature.properties || {};
-
-      for (const id of segIds) {
-        if (map.getLayer(id.layer)) map.removeLayer(id.layer);
-        if (map.getSource(id.source)) map.removeSource(id.source);
-      }
-      segIds = [];
-      ["route-line","route-casing"].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
-      if (map.getSource("narvi-route")) map.removeSource("narvi-route");
-
-      let lineCoords = [];
-      if (feature.geometry.type === "LineString") lineCoords = feature.geometry.coordinates;
-      else if (feature.geometry.type === "MultiLineString") lineCoords = feature.geometry.coordinates.flat();
-
-      const leg = props.legs?.[0] || null;
-      const steps = Array.isArray(leg?.steps) ? leg.steps : [];
-      let drewSegments = false;
-
-      if (mode === "drive" && steps.length &&
-         typeof steps[0]?.from_index === "number" && typeof steps[0]?.to_index === "number" &&
-         lineCoords.length) {
-
-        const colorForStep = (step) => {
-          const cur  = step.speed_with_traffic ?? step.current_speed ?? step.speed ?? null;
-          const free = step.free_flow_speed   ?? step.speed         ?? null;
-          if (cur && free) {
-            const ratio = cur / free;
-            if (ratio < 0.60) return RED;
-            if (ratio < 0.85) return YELLOW;
-            return PURPLE;
-          }
-          const delay = step.delay ?? 0;
-          const distM = step.distance ?? 0;
-          const dpk   = distM > 0 ? delay / (distM / 1000) : 0;
-          if (dpk > 60) return RED;
-          if (dpk > 20) return YELLOW;
-          return PURPLE;
-        };
-
-        steps.forEach((step, i) => {
-          const a = Math.max(0, Math.min(step.from_index, lineCoords.length - 1));
-          const b = Math.max(0, Math.min(step.to_index,   lineCoords.length - 1));
-          if (b <= a) return;
-          const segCoords = lineCoords.slice(a, b + 1);
-          const segColor  = colorForStep(step);
-          const srcId = `narvi-seg-src-${i}`;
-          const layerId = `narvi-seg-${i}`;
-          map.addSource(srcId, { type: "geojson", data: { type:"Feature", geometry:{ type:"LineString", coordinates: segCoords } } });
-          map.addLayer({ id: layerId, type: "line", source: srcId, paint: { "line-width": 6, "line-color": segColor, "line-opacity": 0.95 } });
-          segIds.push({ source: srcId, layer: layerId });
-          drewSegments = true;
-        });
-
-        if (drewSegments) {
-          let b = new maplibregl.LngLatBounds(lineCoords[0], lineCoords[0]);
-          for (const c of lineCoords) b.extend(c);
-          map.fitBounds(b, { padding: 60, duration: 600 });
+        url = buildURLNoTraffic();
+        res = await fetch(url);
+        if (!res.ok) {
+          const bodyText3 = await safeReadText(res);
+          console.error("Routing call failed (no traffic):", res.status, bodyText3, url);
+          throw new Error(`Routing failed (${res.status}): ${bodyText3 || "(no body)"} (url: ${url})`);
         }
       }
+    }
+  } else {
+    const url = buildURLNoTraffic();
+    res = await fetch(url);
+    if (!res.ok) {
+      const bodyText = await safeReadText(res);
+      console.error("Routing call failed:", res.status, bodyText, url);
+      throw new Error(`Routing failed (${res.status}): ${bodyText || "(no body)"} (url: ${url})`);
+    }
+  }
+  json = await res.json();
+} catch (err) {
+  console.error("Routing error:", err);
+  alert("Routing failed. See console for details.\n\n" + (err.message || ""));
+  return;
+}
 
-      if (!drewSegments) {
-        map.addSource("narvi-route", { type: "geojson", data: feature });
-        map.addLayer({ id:"route-casing", type:"line", source:"narvi-route", paint:{ "line-width":10, "line-color":"#fff", "line-opacity":0.6 } });
-        map.addLayer({ id:"route-line", type:"line", source:"narvi-route", paint:{ "line-width":6, "line-color":"#4f46e5", "line-opacity":0.95 } });
-        const coords = feature.geometry.type === "LineString" ? feature.geometry.coordinates : feature.geometry.coordinates.flat();
-        if (coords.length) {
-          let b = new maplibregl.LngLatBounds(coords[0], coords[0]);
-          for (const c of coords) b.extend(c);
-          map.fitBounds(b, { padding: 60, duration: 600 });
-        }
-      }
+if (!json.features || !json.features.length) {
+  alert("No route found.");
+  return;
+}
 
-      const meters  = props.distance ?? 0;
-      const seconds = props.time ?? 0;
-      const miles = meters / 1609.344;
-      const km    = meters / 1000;
+const feature = json.features[0];
+const props   = feature.properties || {};
 
-      let desc;
-      if (mode === "drive") {
-        desc = drewSegments ? "Drive (traffic)" : "Drive";
-      } else if (mode === "walk") {
-        desc = "Walk";
-      } else if (mode === "bicycle") {
-        desc = "Bicycle";
-      } else if (mode === "transit") {
-        desc = "Transit";
-      } else {
-        desc = "Route";
-      }
+// 👉 distance / time for HUD
+const meters  = props.distance ?? 0;
+const seconds = props.time ?? 0;
+const miles   = meters / 1609.344;
+const km      = meters / 1000;
+lastRouteInfo = { meters, seconds, miles, km };
 
-      const modeResult = document.getElementById("mode-result");
-      const modeResultText = document.getElementById("mode-result-text");
-      if (modeResult) modeResult.style.display = "flex";
-      if (modeResultText) {
-        modeResultText.innerHTML = `
-          <strong>${desc}</strong><br>
-          Distance: ${miles.toFixed(1)} mi (${km.toFixed(1)} km)<br>
-          Estimated time: ${formatTime(seconds)}
-        `;
-      }
+// Clear previous layers
+for (const id of segIds) {
+  if (map.getLayer(id.layer)) map.removeLayer(id.layer);
+  if (map.getSource(id.source)) map.removeSource(id.source);
+}
+segIds = [];
+["route-line","route-casing"].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+if (map.getSource("narvi-route")) map.removeSource("narvi-route");
 
-      const mini = document.getElementById("mode-summary-mini");
-      if (mini) mini.textContent = `${miles.toFixed(1)} mi • ${formatTime(seconds)}`;
+let lineCoords = [];
+if (feature.geometry.type === "LineString") lineCoords = feature.geometry.coordinates;
+else if (feature.geometry.type === "MultiLineString") lineCoords = feature.geometry.coordinates.flat();
 
-      const startLL = [state.from.lon, state.from.lat];
-      const endLL   = [state.to.lon, state.to.lat];
+const leg = props.legs?.[0] || null;
+const steps = Array.isArray(leg?.steps) ? leg.steps : [];
+let drewSegments = false;
 
-      if (startMarker) startMarker.remove();
-      if (destMarker)  destMarker.remove();
+if (mode === "drive" && steps.length &&
+   typeof steps[0]?.from_index === "number" && typeof steps[0]?.to_index === "number" &&
+   lineCoords.length) {
 
-      const startEl = document.createElement("div");
-      startEl.style.width = "10px"; startEl.style.height = "10px";
-      startEl.style.borderRadius = "9999px"; startEl.style.background = "#4f46e5";
-      startEl.style.border = "2px solid #fff"; startEl.style.boxShadow = "0 1px 2px rgba(0,0,0,.35)";
-      startMarker = new maplibregl.Marker({ element: startEl, anchor: "center" }).setLngLat(startLL).addTo(map);
+  const colorForStep = (step) => {
+    const cur  = step.speed_with_traffic ?? step.current_speed ?? step.speed ?? null;
+    const free = step.free_flow_speed   ?? step.speed         ?? null;
+    if (cur && free) {
+      const ratio = cur / free;
+      if (ratio < 0.60) return RED;
+      if (ratio < 0.85) return YELLOW;
+      return PURPLE;
+    }
+    const delay = step.delay ?? 0;
+    const distM = step.distance ?? 0;
+    const dpk   = distM > 0 ? delay / (distM / 1000) : 0;
+    if (dpk > 60) return RED;
+    if (dpk > 20) return YELLOW;
+    return PURPLE;
+  };
 
-      const flagEl = document.createElement("div");
-      flagEl.style.fontSize = "20px"; flagEl.textContent = "🏁";
-      destMarker = new maplibregl.Marker({ element: flagEl, anchor: "bottom" }).setLngLat(endLL).addTo(map);
+  steps.forEach((step, i) => {
+    const a = Math.max(0, Math.min(step.from_index, lineCoords.length - 1));
+    const b = Math.max(0, Math.min(step.to_index,   lineCoords.length - 1));
+    if (b <= a) return;
+    const segCoords = lineCoords.slice(a, b + 1);
+    const segColor  = colorForStep(step);
+    const srcId = `narvi-seg-src-${i}`;
+    const layerId = `narvi-seg-${i}`;
+    map.addSource(srcId, {
+      type: "geojson",
+      data: { type:"Feature", geometry:{ type:"LineString", coordinates: segCoords } }
+    });
+    map.addLayer({
+      id: layerId,
+      type: "line",
+      source: srcId,
+      paint: { "line-width": 6, "line-color": segColor, "line-opacity": 0.95 }
+    });
+    segIds.push({ source: srcId, layer: layerId });
+    drewSegments = true;
+  });
 
-      const dirBox = document.getElementById("directions");
-      const dirWrapper = document.getElementById("directions-wrapper");
+  if (drewSegments) {
+    let b = new maplibregl.LngLatBounds(lineCoords[0], lineCoords[0]);
+    for (const c of lineCoords) b.extend(c);
+    map.fitBounds(b, { padding: 60, duration: 600 });
+  }
+}
 
-      if (!showDirections) {
-        // Hide directions when just previewing mode
-        if (dirBox) dirBox.innerHTML = "";
-        if (dirWrapper) dirWrapper.style.display = "none";
-      } else if (dirBox) {
-        if (!steps.length) {
-          dirBox.innerHTML = "";
-          if (dirWrapper) dirWrapper.style.display = "none";
-        } else {
-          const html = steps.map((s, i) => {
-            const instr = (s.instruction && (s.instruction.text || s.instruction)) ||
-                          s.text || s.name || s.street || "Step";
-            const distM = s.distance ?? 0;
-            const dist = distM ? `${(distM/1609.344).toFixed(2)} mi` : "";
-            return `<li>${i+1}. ${instr}${dist ? `<small>${dist}</small>` : ""}</li>`;
-          }).join("");
+if (!drewSegments) {
+  map.addSource("narvi-route", { type: "geojson", data: feature });
+  map.addLayer({
+    id:"route-casing",
+    type:"line",
+    source:"narvi-route",
+    paint:{ "line-width":10, "line-color":"#fff", "line-opacity":0.6 }
+  });
+  map.addLayer({
+    id:"route-line",
+    type:"line",
+    source:"narvi-route",
+    paint:{ "line-width":6, "line-color":"#4f46e5", "line-opacity":0.95 }
+  });
+  const coords = feature.geometry.type === "LineString"
+    ? feature.geometry.coordinates
+    : feature.geometry.coordinates.flat();
+  if (coords.length) {
+    let b = new maplibregl.LngLatBounds(coords[0], coords[0]);
+    for (const c of coords) b.extend(c);
+    map.fitBounds(b, { padding: 60, duration: 600 });
+  }
+}
 
-          dirBox.innerHTML = `<ol>${html}</ol>`;
+// Summary text
+let desc;
+if (mode === "drive")      desc = drewSegments ? "Drive (traffic)" : "Drive";
+else if (mode === "walk")  desc = "Walk";
+else if (mode === "bicycle") desc = "Bicycle";
+else if (mode === "transit") desc = "Transit";
+else desc = "Route";
 
-          if (dirWrapper) {
-            dirWrapper.style.display = "block";
-            dirWrapper.scrollTop = 0;
-          }
-        }
-      }
-    } // ✅ close drawRoute properly
+const modeResult = document.getElementById("mode-result");
+const modeResultText = document.getElementById("mode-result-text");
+if (modeResult) modeResult.style.display = "flex";
+if (modeResultText) {
+  modeResultText.innerHTML = `
+    <strong>${desc}</strong><br>
+    Distance: ${miles.toFixed(1)} mi (${km.toFixed(1)} km)<br>
+    Estimated time: ${formatTime(seconds)}
+  `;
+}
 
+const mini = document.getElementById("mode-summary-mini");
+if (mini) mini.textContent = `${miles.toFixed(1)} mi • ${formatTime(seconds)}`;
+
+const startLL = [state.from.lon, state.from.lat];
+const endLL   = [state.to.lon, state.to.lat];
+
+if (startMarker) startMarker.remove();
+if (destMarker)  destMarker.remove();
+
+const startEl = document.createElement("div");
+startEl.style.width = "10px";
+startEl.style.height = "10px";
+startEl.style.borderRadius = "9999px";
+startEl.style.background = "#4f46e5";
+startEl.style.border = "2px solid #fff";
+startEl.style.boxShadow = "0 1px 2px rgba(0,0,0,.35)";
+startMarker = new maplibregl.Marker({ element: startEl, anchor: "center" })
+  .setLngLat(startLL)
+  .addTo(map);
+
+const flagEl = document.createElement("div");
+flagEl.style.fontSize = "20px";
+flagEl.textContent = "🏁";
+destMarker = new maplibregl.Marker({ element: flagEl, anchor: "bottom" })
+  .setLngLat(endLL)
+  .addTo(map);
+
+const dirBox = document.getElementById("directions");
+const dirWrapper = document.getElementById("directions-wrapper");
+
+if (!showDirections) {
+  if (dirBox) dirBox.innerHTML = "";
+  if (dirWrapper) dirWrapper.style.display = "none";
+} else if (dirBox) {
+  if (!steps.length) {
+    dirBox.innerHTML = "";
+    if (dirWrapper) dirWrapper.style.display = "none";
+  } else {
+    const html = steps.map((s, i) => {
+      const instr = (s.instruction && (s.instruction.text || s.instruction)) ||
+                    s.text || s.name || s.street || "Step";
+      const distM = s.distance ?? 0;
+      const dist = distM ? `${(distM/1609.344).toFixed(2)} mi` : "";
+      return `<li>${i+1}. ${instr}${dist ? `<small>${dist}</small>` : ""}</li>`;
+    }).join("");
+
+    dirBox.innerHTML = `<ol>${html}</ol>`;
+    if (dirWrapper) {
+      dirWrapper.style.display = "block";
+      dirWrapper.scrollTop = 0;
+    }
+  }
+}
+}
+
+function enterNavigationMode() {
+  if (!lastRouteInfo || navActive) return;
+  navActive = true;
+
+  const hud = document.getElementById("nav-hud");
+  if (hud) {
+    const distEl = hud.querySelector(".nav-distance");
+    const etaEl  = hud.querySelector(".nav-eta");
+    const arrEl  = hud.querySelector(".nav-arrival");
+
+    const miles   = lastRouteInfo.miles ?? 0;
+    const seconds = lastRouteInfo.seconds ?? 0;
+
+    if (distEl) distEl.textContent = `${miles.toFixed(1)} mi`;
+    if (etaEl)  etaEl.textContent  = formatTime(seconds);
+
+    const now = new Date();
+    const arrival = new Date(now.getTime() + seconds * 1000);
+    const arrivalStr = arrival.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (arrEl) arrEl.textContent = `Arrive ~ ${arrivalStr}`;
+
+    hud.classList.add("show");
+  }
+
+  // hide panels
+  const mb = document.getElementById("mode-box");
+  const panel = document.getElementById("left-panel");
+  if (mb) mb.classList.remove("show");
+  if (panel) panel.classList.add("hidden");
+
+  // 3D-ish camera
+  if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
+    map.easeTo({
+      center: [state.from.lon, state.from.lat],
+      zoom: 15.5,
+      pitch: 55,
+      bearing: 0,
+      duration: 800
+    });
+  }
+
+  // follow user
+  if (navigator.geolocation) {
+    navWatchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      map.easeTo({
+        center: [longitude, latitude],
+        duration: 800
+      });
+    }, err => {
+      console.warn("nav watch error", err);
+    });
+  }
+}
+
+function exitNavigationMode() {
+  if (!navActive) return;
+  navActive = false;
+
+  const hud = document.getElementById("nav-hud");
+  if (hud) hud.classList.remove("show");
+
+  if (navWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(navWatchId);
+    navWatchId = null;
+  }
+
+  map.easeTo({
+    pitch: 0,
+    bearing: 0,
+    duration: 600
+  });
+}
+
+    
     function saveRecentSearch(fromLabel, toLabel) {
       if (!fromLabel || !toLabel) return;
       const MAX = 5; const key = "narvimaps_recents";
@@ -1237,12 +1353,18 @@
       });
 
       const goBtn = document.getElementById("mode-go");
-      if (goBtn) {
-        goBtn.addEventListener("click", async () => {
-          if (!currentMode) return;
-          await drawRoute(currentMode, true); // 👉 now show directions box + list
-        });
-      }
+if (goBtn) {
+  goBtn.addEventListener("click", async () => {
+    if (!currentMode) return;
+    await drawRoute(currentMode, true); // show route + directions
+
+    // On mobile, enter navigation mode with HUD
+    if (window.innerWidth <= 600) {
+      enterNavigationMode();
+    }
+  });
+}
+
 
       document.getElementById("mode-back").addEventListener("click", () => {
         const res = document.getElementById("mode-result");
@@ -1332,9 +1454,103 @@
   renderFavMarkers();
   ensureModeBoxCreated();
 
+  const navExit = document.getElementById("nav-exit");
+  if (navExit) {
+    navExit.addEventListener("click", exitNavigationMode);
+  }
+});
+
+
   // 📱 On phones: ask for location once
   if (window.innerWidth <= 600) {
     getMyLocation();   // browser will show the permission popup once
+  }
+});
+
+function enterNavigationMode() {
+  if (!lastRouteInfo || navActive) return;
+  navActive = true;
+
+  const hud = document.getElementById("nav-hud");
+  if (hud) {
+    const distEl = hud.querySelector(".nav-distance");
+    const etaEl  = hud.querySelector(".nav-eta");
+    const arrEl  = hud.querySelector(".nav-arrival");
+
+    const miles = lastRouteInfo.miles ?? 0;
+    const seconds = lastRouteInfo.seconds ?? 0;
+
+    if (distEl) distEl.textContent = `${miles.toFixed(1)} mi`;
+    if (etaEl)  etaEl.textContent  = formatTime(seconds);
+
+    // arrival time
+    const now = new Date();
+    const arrival = new Date(now.getTime() + seconds * 1000);
+    const arrivalStr = arrival.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (arrEl) arrEl.textContent = `Arrive ~ ${arrivalStr}`;
+
+    hud.classList.add("show");
+  }
+
+  // hide mode box + main panel
+  const mb = document.getElementById("mode-box");
+  const panel = document.getElementById("left-panel");
+  if (mb) mb.classList.remove("show");
+  if (panel) panel.classList.add("hidden");
+
+  // give a 3D-ish view
+  if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
+    map.easeTo({
+      center: [state.from.lon, state.from.lat],
+      zoom: 15.5,
+      pitch: 55,    // tilt
+      bearing: 0,
+      duration: 800
+    });
+  }
+
+  // follow user while navigating (mobile browsers only when tab is open)
+  if (navigator.geolocation) {
+    navWatchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      map.easeTo({
+        center: [longitude, latitude],
+        duration: 800
+      });
+    }, err => {
+      console.warn("nav watch error", err);
+    });
+  }
+}
+
+function exitNavigationMode() {
+  if (!navActive) return;
+  navActive = false;
+
+  const hud = document.getElementById("nav-hud");
+  if (hud) hud.classList.remove("show");
+
+  if (navWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(navWatchId);
+    navWatchId = null;
+  }
+
+  // back to normal top-down view
+  map.easeTo({
+    pitch: 0,
+    bearing: 0,
+    duration: 600
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderRecents();
+  renderFavMarkers();
+  ensureModeBoxCreated();
+
+  const navExit = document.getElementById("nav-exit");
+  if (navExit) {
+    navExit.addEventListener("click", exitNavigationMode);
   }
 });
 
