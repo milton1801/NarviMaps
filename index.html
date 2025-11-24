@@ -36,6 +36,16 @@
   min-height: auto;
   transition: transform .18s ease, opacity .18s ease;
 }
+/* Utility */
+.hidden {
+  display: none !important;
+}
+
+/* When navigation is active, hide all big cards */
+body.nav-active #left-panel,
+body.nav-active #mode-box {
+  display: none !important;
+}
 
 .panel h3 {
   margin: 0 0 8px 0;
@@ -1248,13 +1258,20 @@
     function enterNavigationMode() {
   if (!lastRouteInfo || navActive) return;
   navActive = true;
-  // Hide the full panel in navigation mode
-const panel = document.getElementById("left-panel");
-if (panel) panel.style.display = "none";
-// Show the panel again when navigation ends
-const pnel = document.getElementById("left-panel");
-if (panel) panel.style.display = "block";
 
+  // Mark body as "nav mode" → CSS hides the big boxes
+  document.body.classList.add("nav-active");
+
+  // Hide main panel explicitly too (extra safety)
+  const panel = document.getElementById("left-panel");
+  const mb    = document.getElementById("mode-box");
+  if (panel) {
+    panel.classList.add("hidden");
+    panel.style.display = "none";
+  }
+  if (mb) {
+    mb.classList.remove("show");
+  }
 
   // Show bottom HUD
   const hud = document.getElementById("nav-hud");
@@ -1262,12 +1279,6 @@ if (panel) panel.style.display = "block";
     hud.classList.add("show");
     refreshNavHUD();
   }
-
-  // Hide side/mode panels
-  const pael = document.getElementById("left-panel");
-  const mb = document.getElementById("mode-box");
-  if (panel) panel.classList.add("hidden");
-  if (mb) mb.classList.remove("show");
 
   // Create / position car marker at starting point
   if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
@@ -1299,7 +1310,6 @@ if (panel) panel.style.display = "block";
       const { latitude, longitude, heading } = pos.coords;
       const lngLat = [longitude, latitude];
 
-      // Move car icon
       if (navMarker) {
         navMarker.setLngLat(lngLat);
       } else {
@@ -1311,7 +1321,6 @@ if (panel) panel.style.display = "block";
           .addTo(map);
       }
 
-      // Move / rotate camera
       map.easeTo({
         center: lngLat,
         zoom: 16,
@@ -1320,7 +1329,6 @@ if (panel) panel.style.display = "block";
         duration: 800
       });
 
-      // Update remaining distance + ETA
       updateRemainingFromPosition(latitude, longitude);
     }, err => {
       console.warn("nav watch error", err);
@@ -1332,10 +1340,12 @@ if (panel) panel.style.display = "block";
   }
 }
 
-
 function exitNavigationMode() {
   if (!navActive) return;
   navActive = false;
+
+  // Remove nav-active flag so CSS shows panels again
+  document.body.classList.remove("nav-active");
 
   const hud = document.getElementById("nav-hud");
   if (hud) hud.classList.remove("show");
@@ -1345,10 +1355,16 @@ function exitNavigationMode() {
     navWatchId = null;
   }
 
-  // Remove car marker
   if (navMarker) {
     navMarker.remove();
     navMarker = null;
+  }
+
+  // Show the main panel again
+  const panel = document.getElementById("left-panel");
+  if (panel) {
+    panel.classList.remove("hidden");
+    panel.style.display = "block";
   }
 
   map.easeTo({
@@ -1357,6 +1373,11 @@ function exitNavigationMode() {
     duration: 600
   });
 }
+
+
+
+
+
 
 
     (function initLatestTripsToggle(){
