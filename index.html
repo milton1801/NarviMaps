@@ -24,33 +24,66 @@
 
     /* LEFT PANEL */
     .panel {
-      position: fixed;
-      top: 100px;
-      left: 50px;
-      width: 400px;
-      background: rgba(255,255,255,.95);
-      border-radius: 14px;
-      box-shadow: 0 10px 25px rgba(0,0,0,.2);
-      padding: 16px;
-      z-index: 7;
-      min-height: 340px;
-      transition: transform .18s ease, opacity .18s ease;
-    }
+  position: fixed;
+  top: 90px;
+  left: 40px;
+  width: 360px;
+  background: rgba(255,255,255,.97);
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(0,0,0,.18);
+  padding: 12px 14px;
+  z-index: 7;
+  min-height: auto;
+  transition: transform .18s ease, opacity .18s ease;
+}
 
-    .panel.hidden {
-      opacity: 0;
-      transform: translateX(-12px);
-      pointer-events: none;
-    }
+.panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* title on left, weather on right */
+  gap: 8px;
+}
 
-    .panel h3 {
-      margin: 0 0 12px 2px;
-      font-size: 24px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+.panel button {
+  width: 100%;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: #4f46e5;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .panel {
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    min-height: auto;
+    background: rgba(255,255,255,0.97);
+    border-radius: 14px;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.25);
+    padding: 10px 10px 12px;
+    z-index: 7;
+  }
+
+  .panel h3 {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  .panel button {
+    height: 38px;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+}
+
+
 
     .row {
       position: relative;
@@ -126,40 +159,22 @@
     }
 
     /* FAVORITES */
-    .fav-bar {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-      margin-bottom: 8px;
-      align-items: center;
-    }
-
     .chip {
-      width: 44px;
-      height: 44px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      border-radius: 50%;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      cursor: pointer;
-      box-shadow: 0 4px 10px rgba(16,24,40,0.06);
-      transition: transform .08s ease, background .12s ease;
-      font-family: inherit;
-    }
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
 
-    .chip:hover {
-      background: #eef2ff;
-      transform: translateY(-2px);
-    }
+.chip-small {
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+}
 
-    .chip-small {
-      width: 36px;
-      height: 36px;
-      font-size: 16px;
-    }
+.fav-bar {
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
 
     /* RECENTS */
     .latest-link {
@@ -197,26 +212,25 @@
       color: #3730a3;
     }
 
-    .weather {
-      position: fixed;
-      top: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 8;
-      font-size: 12px;
-      background: rgba(255,255,255,0.9);
-      padding: 3px 8px;
-      border-radius: 999px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-    }
+    .weather-inline {
+  font-size: 12px;
+  color: #111827;
+  background: #f3f4f6;
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 
-    .weather .chip {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #f3f4f6;
-      margin-left: 6px;
-    }
+.weather-inline .chip {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  margin-left: 2px;
+}
+
 
     /* TOP RIGHT TOGGLE */
     #toggle-theme {
@@ -632,13 +646,13 @@
       }
 
       .summary,
-      .fav-bar,
-      #latest-trips-toggle,
-      #latest-trips,
-      #poi-results,
-      .poi-bar {
-        display: none !important;
-      }
+  #latest-trips-toggle,
+  #latest-trips,
+  #poi-results,
+  .poi-bar {
+    display: none !important;
+  }
+
 
       .weather {
         top: 10px;
@@ -729,7 +743,13 @@
 
   <!-- LEFT PANEL -->
   <div class="panel" id="left-panel">
-    <h3> NarviMaps <span id="user-location" class="title-extra"></span> </h3>
+    <h3>
+      <span>
+        NarviMaps <span id="user-location" class="title-extra"></span>
+      </span>
+      <span id="weather-inline" class="weather-inline">Loading weather…</span>
+    </h3>
+    
 
     <div class="row row-from">
       <input id="from" placeholder="From..." autocomplete="off" />
@@ -760,8 +780,7 @@
     <div id="poi-results"></div>
   </div>
 
-  <!-- WEATHER -->
-  <div id="weather" class="weather">Loading weather…</div>
+
 
   <!-- Theme toggle -->
   <button id="toggle-theme">🌙 Night Mode</button>
@@ -1519,19 +1538,27 @@
     const WMO_EMOJI = { 0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌦️",55:"🌦️",61:"🌧️",63:"🌧️",65:"🌧️",71:"🌨️",73:"🌨️",75:"🌨️",80:"🌧️",81:"🌧️",82:"⛈️",95:"⛈️" };
 
     async function showWeather(lat, lon){
-      const el = document.getElementById("weather");
-      try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`;
-        const r = await fetch(url); const j = await r.json();
-        const t = j.current?.temperature_2m; const code = j.current?.weather_code;
-        const label = WMO[code] ?? "Weather"; const icon = WMO_EMOJI[code] ?? "🌡️";
-        if (typeof t === "number") el.innerHTML = `${icon} ${label} <span class="chip">${Math.round(t)}°F</span>`;
-        else el.textContent = "Weather unavailable";
-      } catch(e) {
-        console.warn("Weather fetch failed:", e);
-        el.textContent = "Weather unavailable";
-      }
+  const el = document.getElementById("weather-inline");
+  if (!el) return;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const t = j.current?.temperature_2m;
+    const code = j.current?.weather_code;
+    const label = WMO[code] ?? "Weather";
+    const icon = WMO_EMOJI[code] ?? "🌡️";
+    if (typeof t === "number") {
+      el.innerHTML = `${icon} ${label} <span class="chip">${Math.round(t)}°F</span>`;
+    } else {
+      el.textContent = "Weather unavailable";
     }
+  } catch(e) {
+    console.warn("Weather fetch failed:", e);
+    el.textContent = "Weather unavailable";
+  }
+}
+
 
     async function resolveCity(lat, lon){
       try {
