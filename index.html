@@ -98,12 +98,21 @@
       font-weight:600; font-size:13px; padding:2px 8px;
       background:#eef2ff; color:#3730a3;
     }
-    .weather {
-      position: fixed; top: 10px; left: 55px; z-index: 8; font-size: 14px;
-      color: #111827; background: rgba(255,255,255,.9); padding: 6px 10px;
-      border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.15);
-    }
+  
     .weather .chip { display:inline-block; padding:2px 8px; border-radius:999px; background:#f3f4f6; margin-left:6px; }
+     
+    .weather {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  font-size: 12px;
+  background: rgba(255,255,255,0.9);
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
 
     /* top right buttons */
     #toggle-theme, #my-location-btn {
@@ -202,11 +211,20 @@
       background: transparent; color: #4f46e5; border:none; font-size:14px; cursor:pointer; padding:6px;
     }
     .mode-title { font-weight:600; font-size:16px; }
-    .mode-grid { display:flex; gap:8px; }
-    .mode-btn {
-      flex:1;height:50px; padding:10px 12px; border-radius:10px; border:none; background:#4f46e5; color:#fff; cursor:pointer; font-size:15px;
-      box-shadow: 0 6px 12px rgba(0,0,0,.08);
-    }
+    @media (max-width: 600px) {
+  .mode-grid {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .mode-btn {
+    flex: 0 0 calc(50% - 6px);
+    height: 40px;
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+}
+
     .mode-btn:hover { background:#3f3ad8; transform: translateY(-2px); }
     .mode-btn.active { background:#111827; }
 
@@ -287,13 +305,14 @@
       color: #111827;
     }
     /* NAV HUD (top bar when navigating) */
+/* NAV HUD (bottom bar) */
 .nav-hud {
   position: fixed;
-  top: 10px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
-  display: none;              /* hidden by default */
+  display: none;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -307,7 +326,7 @@
 }
 
 .nav-hud.show {
-  display: flex;              /* we show it only via JS */
+  display: flex;
 }
 
 .nav-main {
@@ -335,24 +354,30 @@
   cursor: pointer;
 }
 
-/* mobile tweak for HUD */
+/* Mobile */
 @media (max-width: 600px) {
+  .nav-hud {
+    min-width: 92%;
+    bottom: 12px;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
 
-/* NAV HUD at the bottom on mobile */
-.nav-hud {
-  top: auto;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 90%;
-}
-@media (max-width: 600px) {
+  .nav-main {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
 
-/* Make mode buttons smaller and 2 per row on mobile */
-.mode-grid {
-  flex-wrap: wrap;
+  .nav-line {
+    font-size: 12px;
+  }
+
+  .nav-arrival {
+    font-size: 11px;
+  }
 }
-@media (max-width: 600px) {
+
 
 /* Smaller weather pill on mobile */
 .weather {
@@ -360,7 +385,7 @@
   padding: 2px 6px;
   border-radius: 999px;
 }
-}
+
 
 .mode-btn {
   flex: 0 0 calc(50% - 6px);  /* 2 per row */
@@ -369,7 +394,7 @@
   padding: 6px 8px;
   margin-bottom: 6px;
 }
-}
+
 
   .nav-main {
     flex-direction: row;       /* todo en una sola línea */
@@ -384,7 +409,7 @@
   .nav-arrival {
     font-size: 11px;
   }
-}
+
 
 
 
@@ -481,10 +506,7 @@
     padding: 6px 8px;
   }
 
-  #my-location-btn {
-    left: 10px;
-    right: auto;
-  }
+
 
   #toggle-theme {
     right: 10px;
@@ -583,7 +605,6 @@
   <div id="weather" class="weather">Loading weather…</div>
 
   <!-- toggles -->
-  <button id="my-location-btn">📍 My Location</button>
   <button id="toggle-theme">🌙 Night Mode</button>
 
   <!-- POI buttons -->
@@ -640,6 +661,69 @@
     let lastRouteInfo = null;       // distance & time of last route
     let navActive = false;
     let navWatchId = null;
+
+    let navLastUpdateTs = 0;
+
+// Re-render the bottom HUD using the latest lastRouteInfo
+function refreshNavHUD() {
+  if (!lastRouteInfo) return;
+  const hud = document.getElementById("nav-hud");
+  if (!hud) return;
+
+  const distEl = hud.querySelector(".nav-distance");
+  const etaEl  = hud.querySelector(".nav-eta");
+  const arrEl  = hud.querySelector(".nav-arrival");
+
+  const meters  = lastRouteInfo.meters  ?? 0;
+  const miles   = lastRouteInfo.miles   ?? (meters / 1609.344);
+  const seconds = lastRouteInfo.seconds ?? 0;
+
+  if (distEl) distEl.textContent = `${miles.toFixed(1)} mi`;
+  if (etaEl)  etaEl.textContent  = formatTime(seconds);
+
+  const now = new Date();
+  const arrival = new Date(now.getTime() + seconds * 1000);
+  const arrivalStr = arrival.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (arrEl) arrEl.textContent = `Arrive ~ ${arrivalStr}`;
+}
+
+// When user moves, recompute remaining distance/time from current position to destination
+async function updateRemainingFromPosition(lat, lon) {
+  if (!state.to || typeof state.to.lat !== "number" || typeof state.to.lon !== "number") return;
+
+  const now = Date.now();
+  if (now - navLastUpdateTs < 10000) {
+    // avoid calling the routing API more than once every 10s
+    return;
+  }
+  navLastUpdateTs = now;
+
+  try {
+    const modeSet = new Set(["drive","walk","bicycle","transit"]);
+    const mode = modeSet.has(currentMode) ? currentMode : "drive";
+
+    const url = `https://api.geoapify.com/v1/routing?waypoints=${lat},${lon}|${state.to.lat},${state.to.lon}&mode=${mode}&apiKey=${KEY}`;
+
+    const r = await fetch(url);
+    if (!r.ok) return;
+    const j = await r.json();
+    const f = j.features?.[0];
+    const props = f?.properties;
+    if (!props) return;
+
+    const meters  = props.distance ?? 0;
+    const seconds = props.time ?? 0;
+    const miles   = meters / 1609.344;
+    const km      = meters / 1000;
+
+    lastRouteInfo = { meters, seconds, miles, km };
+    refreshNavHUD();
+  } catch (e) {
+    console.warn("nav update failed", e);
+  }
+}
+
 
 
     const map = new maplibregl.Map({
@@ -1054,23 +1138,31 @@ function enterNavigationMode() {
 
   const hud = document.getElementById("nav-hud");
   if (hud) {
-    const distEl = hud.querySelector(".nav-distance");
-    const etaEl  = hud.querySelector(".nav-eta");
-    const arrEl  = hud.querySelector(".nav-arrival");
-
-    const miles   = lastRouteInfo.miles ?? 0;
-    const seconds = lastRouteInfo.seconds ?? 0;
-
-    if (distEl) distEl.textContent = `${miles.toFixed(1)} mi`;
-    if (etaEl)  etaEl.textContent  = formatTime(seconds);
-
-    const now = new Date();
-    const arrival = new Date(now.getTime() + seconds * 1000);
-    const arrivalStr = arrival.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    if (arrEl) arrEl.textContent = `Arrive ~ ${arrivalStr}`;
-
     hud.classList.add("show");
+    refreshNavHUD();
   }
+
+  document.getElementById("left-panel").classList.add("hidden");
+  document.getElementById("mode-box").classList.remove("show");
+
+  map.easeTo({
+    zoom: 15.5,
+    pitch: 55,
+    duration: 800
+  });
+
+  if (navigator.geolocation) {
+    navWatchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      map.easeTo({
+        center: [longitude, latitude],
+        duration: 800
+      });
+      updateRemainingFromPosition(latitude, longitude);
+    });
+  }
+}
+
 
   // hide panels
   const mb = document.getElementById("mode-box");
@@ -1101,7 +1193,7 @@ function enterNavigationMode() {
       console.warn("nav watch error", err);
     });
   }
-}
+
 
 function exitNavigationMode() {
   if (!navActive) return;
@@ -1377,7 +1469,7 @@ function exitNavigationMode() {
         updateWeatherAndTitle(lat, lon);
       }, (err)=>{ console.warn(err); alert("Unable to get your location. Please allow location access."); });
     }
-    document.getElementById("my-location-btn").addEventListener("click", getMyLocation);
+    
 
     let darkMode = false;
     document.getElementById("toggle-theme").addEventListener("click", () => {
@@ -1454,17 +1546,22 @@ function exitNavigationMode() {
       });
 
       const goBtn = document.getElementById("mode-go");
-if (goBtn) {
+      if (goBtn) {
   goBtn.addEventListener("click", async () => {
     if (!currentMode) return;
-    await drawRoute(currentMode, true); // show route + directions
-
-    // On mobile, enter navigation mode with HUD
-    if (window.innerWidth <= 600) {
-      enterNavigationMode();
-    }
+    await drawRoute(currentMode, true);  // show route + directions
+    enterNavigationMode();               // immediately enter live navigation
   });
 }
+
+
+    // On mobile, enter navigation mode with HUD
+   // Ask for location as soon as the app loads (desktop + mobile)
+window.addEventListener("load", () => {
+  getMyLocation();   // will show browser permission prompt
+});
+}
+
 
 
       document.getElementById("mode-back").addEventListener("click", () => {
@@ -1484,7 +1581,7 @@ if (goBtn) {
       });
 
       modeBoxReady = true;
-    }
+    
 
     function showModeChoice() {
       const fromLabel = document.getElementById("from")?.value.trim();
