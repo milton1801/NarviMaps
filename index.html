@@ -286,6 +286,62 @@
       margin-bottom: 6px;
       color: #111827;
     }
+    /* NAV HUD (top bar when navigating) */
+.nav-hud {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: none;              /* hidden by default */
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(15,23,42,0.96);
+  color: #f9fafb;
+  border-radius: 999px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+  font-size: 13px;
+  min-width: 70%;
+}
+
+.nav-hud.show {
+  display: flex;              /* we show it only via JS */
+}
+
+.nav-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-line {
+  font-weight: 600;
+}
+
+.nav-arrival {
+  font-size: 12px;
+  color: #e5e7eb;
+}
+
+.nav-exit {
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* mobile tweak for HUD */
+@media (max-width: 600px) {
+  .nav-hud {
+    min-width: 90%;
+  }
+}
+
 
     /* PHONE LAYOUT – Apple Maps style */
 /* PHONE LAYOUT – only destination search */
@@ -1450,100 +1506,6 @@ if (goBtn) {
     });
 
     document.addEventListener("DOMContentLoaded", () => {
-  renderRecents();
-  renderFavMarkers();
-  ensureModeBoxCreated();
-
-  const navExit = document.getElementById("nav-exit");
-  if (navExit) {
-    navExit.addEventListener("click", exitNavigationMode);
-  }
-});
-
-
-  // 📱 On phones: ask for location once
-  if (window.innerWidth <= 600) {
-    getMyLocation();   // browser will show the permission popup once
-  }
-});
-
-function enterNavigationMode() {
-  if (!lastRouteInfo || navActive) return;
-  navActive = true;
-
-  const hud = document.getElementById("nav-hud");
-  if (hud) {
-    const distEl = hud.querySelector(".nav-distance");
-    const etaEl  = hud.querySelector(".nav-eta");
-    const arrEl  = hud.querySelector(".nav-arrival");
-
-    const miles = lastRouteInfo.miles ?? 0;
-    const seconds = lastRouteInfo.seconds ?? 0;
-
-    if (distEl) distEl.textContent = `${miles.toFixed(1)} mi`;
-    if (etaEl)  etaEl.textContent  = formatTime(seconds);
-
-    // arrival time
-    const now = new Date();
-    const arrival = new Date(now.getTime() + seconds * 1000);
-    const arrivalStr = arrival.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    if (arrEl) arrEl.textContent = `Arrive ~ ${arrivalStr}`;
-
-    hud.classList.add("show");
-  }
-
-  // hide mode box + main panel
-  const mb = document.getElementById("mode-box");
-  const panel = document.getElementById("left-panel");
-  if (mb) mb.classList.remove("show");
-  if (panel) panel.classList.add("hidden");
-
-  // give a 3D-ish view
-  if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
-    map.easeTo({
-      center: [state.from.lon, state.from.lat],
-      zoom: 15.5,
-      pitch: 55,    // tilt
-      bearing: 0,
-      duration: 800
-    });
-  }
-
-  // follow user while navigating (mobile browsers only when tab is open)
-  if (navigator.geolocation) {
-    navWatchId = navigator.geolocation.watchPosition(pos => {
-      const { latitude, longitude } = pos.coords;
-      map.easeTo({
-        center: [longitude, latitude],
-        duration: 800
-      });
-    }, err => {
-      console.warn("nav watch error", err);
-    });
-  }
-}
-
-function exitNavigationMode() {
-  if (!navActive) return;
-  navActive = false;
-
-  const hud = document.getElementById("nav-hud");
-  if (hud) hud.classList.remove("show");
-
-  if (navWatchId !== null && navigator.geolocation) {
-    navigator.geolocation.clearWatch(navWatchId);
-    navWatchId = null;
-  }
-
-  // back to normal top-down view
-  map.easeTo({
-    pitch: 0,
-    bearing: 0,
-    duration: 600
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
   renderRecents();
   renderFavMarkers();
   ensureModeBoxCreated();
