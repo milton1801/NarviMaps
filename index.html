@@ -801,6 +801,52 @@ body.nav-active #mode-box {
 .nav-voice-btn.active {
   background: #22c55e;
 }
+/* Right-side HUD boxes (speed + speed limit) */
+.side-hud {
+  position: fixed;
+  right: 16px;
+  z-index: 21;
+  display: none;          /* hidden by default, shown only in nav mode */
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.96);
+  color: #f9fafb;
+  font-size: 13px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+}
+
+/* When navigation is active, show them */
+body.nav-active .side-hud {
+  display: flex;
+}
+
+/* Position: speed limit under moon button */
+.side-hud-top {
+  top: 118px;      /* tweak if you want it closer/further from the moon */
+}
+
+/* Position: speed above + zoom */
+.side-hud-bottom {
+  bottom: 130px;   /* tweak to sit just above the + button */
+}
+
+.side-label {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Optional: mobile tweaks */
+@media (max-width: 600px) {
+  .side-hud-top {
+    top: 110px;
+  }
+  .side-hud-bottom {
+    bottom: 120px;
+  }
+}
+
 
   </style>
 </head>
@@ -815,30 +861,34 @@ body.nav-active #mode-box {
 
 
 
- <!-- NAV HUD -->
-<div id="nav-hud" class="nav-hud">
-  <div class="nav-main">
-    <div class="nav-line">
-      <span class="nav-distance">0.0 mi</span> •
-      <span class="nav-eta">0 min</span>
+  <!-- NAV HUD -->
+  <div id="nav-hud" class="nav-hud">
+    <div class="nav-main">
+      <div class="nav-line">
+        <span class="nav-distance">0.0 mi</span> •
+        <span class="nav-eta">0 min</span>
+      </div>
+      <div class="nav-arrival">Arrive ~ --:--</div>
     </div>
-    <div class="nav-arrival">Arrive ~ --:--</div>
+  
+    <!-- Botón de voz -->
+    <button id="nav-voice-toggle" class="nav-voice-btn">🔈</button>
+  
+    <button id="nav-exit" class="nav-exit">End</button>
+  </div>
+  
+
+  <!-- RIGHT-SIDE HUD BOXES -->
+  <div id="speed-limit-box" class="side-hud side-hud-top">
+    <span class="side-label">Limit</span>
+    <span id="speed-limit-value">-- mph</span>
   </div>
 
-  <div class="nav-speed">
-    <div class="nav-speed-pill">
-      <span>Speed</span>
-      <strong><span id="nav-speed-value">0</span> mph</strong>
-    </div>
-    <div class="nav-speed-pill nav-speed-limit-pill">
-      <span>Limit</span>
-      <strong><span id="nav-speed-limit">--</span> mph</strong>
-    </div>
+  <div id="speed-box" class="side-hud side-hud-bottom">
+    <span class="side-label">Speed</span>
+    <span id="speed-value">0 mph</span>
   </div>
 
-  <button id="nav-voice-toggle" class="nav-voice-btn" title="Voice directions">🔈</button>
-  <button id="nav-exit" class="nav-exit">End</button>
-</div>
 
 
   <!-- LEFT PANEL -->
@@ -940,6 +990,9 @@ let navActive = false;
 let navWatchId = null;
 let navLastUpdateTs = 0;
 let navMarker = null;
+const speedValueEl = document.getElementById("speed-value");
+const speedLimitEl = document.getElementById("speed-limit-value");
+
 
 // Nuevos: ruta / pasos / velocidad / voz
 let routeLineCoords = [];
@@ -1104,9 +1157,8 @@ let voiceEnabled = false;
         refreshNavHUD();
       } catch (e) {
         console.warn("nav update failed", e);
-        updateRemainingFromPosition(latitude, longitude);
+}
 
-      }
     }
 
     async function safeReadText(resp) {
@@ -1368,10 +1420,8 @@ let voiceEnabled = false;
   lastNavPos = null; // reset para cálculo de velocidad
   const banner = document.getElementById("nav-next");
   if (banner) banner.classList.add("show");
-  if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
-    updateUpcomingInstruction(state.from.lat, state.from.lon);
-    maybeSpeakUpcoming();
-  }
+  
+    
 
 
   // Mark body as "nav mode" → CSS hides the big boxes
@@ -1429,42 +1479,52 @@ let voiceEnabled = false;
   // Follow user movement
   if (navigator.geolocation) {
     navWatchId = navigator.geolocation.watchPosition(pos => {
-      const { latitude, longitude, heading } = pos.coords;
-      const lngLat = [longitude, latitude];
+  const { latitude, longitude, heading } = pos.coords;
+  const lngLat = [longitude, latitude];
 
-      if (navMarker) {
-        navMarker.setLngLat(lngLat);
-      } else {
-        const car = document.createElement("div");
-        car.textContent = "🚗";
-        car.style.fontSize = "22px";
-        navMarker = new maplibregl.Marker({ element: car, anchor: "center" })
-          .setLngLat(lngLat)
-          .addTo(map);
-      }
+  if (navMarker) {
+    navMarker.setLngLat(lngLat);
+  } else {
+    const car = document.createElement("div");
+    car.textContent = "🚗";
+    car.style.fontSize = "22px";
+    navMarker = new maplibregl.Marker({ element: car, anchor: "center" })
+      .setLngLat(lngLat)
+      .addTo(map);
+  }
 
-      map.easeTo({
-        center: lngLat,
-        zoom: 16,
-        pitch: 55,
-        bearing: Number.isFinite(heading) ? heading : map.getBearing(),
-        duration: 800
-      });
+  map.easeTo({
+    center: lngLat,
+    zoom: 16,
+    pitch: 55,
+    bearing: Number.isFinite(heading) ? heading : map.getBearing(),
+    duration: 800
+  });
 
-      updateRemainingFromPosition(latitude, longitude);
-    }, err => {
-      console.warn("nav watch error", err);
-    }, {
-      enableHighAccuracy: true,
-      maximumAge: 1000,
-      timeout: 10000
-    });
+  // 🔹 aquí actualizamos todo:
+  updateSpeedFromPosition(latitude, longitude);
+  updateUpcomingInstruction(latitude, longitude);
+  updateRemainingFromPosition(latitude, longitude);
+}, err => {
+  console.warn("nav watch error", err);
+}, {
+  enableHighAccuracy: true,
+  maximumAge: 1000,
+  timeout: 10000
+});
+
   }
 }
 
 function exitNavigationMode() {
   if (!navActive) return;
   navActive = false;
+  const banner = document.getElementById("nav-next");
+if (banner) banner.classList.remove("show");
+if ("speechSynthesis" in window && window.speechSynthesis) {
+  window.speechSynthesis.cancel();
+}
+
 
   // Remove nav-active flag so CSS shows panels again
   document.body.classList.remove("nav-active");
@@ -1694,26 +1754,28 @@ function getStepAnchorCoords(step) {
   return { lat, lon };
 }
 
-// Actualizar mph actuales
+// Actualizar mph actual
 function updateSpeedFromPosition(lat, lon) {
   const now = Date.now();
   if (!lastNavPos) {
     lastNavPos = { lat, lon, t: now };
     return;
   }
+
   const dt = (now - lastNavPos.t) / 1000;
   if (dt < 1) return; // muy seguido, ignoramos
+
   const d = distanceMeters(lat, lon, lastNavPos.lat, lastNavPos.lon);
   lastNavPos = { lat, lon, t: now };
 
   const mps = d / dt;
   const mph = mps * 2.23694;
 
-  const speedEl = document.getElementById("nav-speed-value");
-  if (speedEl) {
-    speedEl.textContent = Math.round(mph);
+  if (speedValueEl) {
+    speedValueEl.textContent = `${Math.round(mph)} mph`;
   }
 }
+
 
 // Voz
 function speakInstruction(text) {
@@ -1741,7 +1803,8 @@ function maybeSpeakUpcoming() {
 function updateUpcomingInstruction(lat, lon) {
   const banner = document.getElementById("nav-next");
   const textEl = document.getElementById("nav-next-text");
-  const limitEl = document.getElementById("nav-speed-limit");
+  const limitEl = speedLimitEl;
+
 
   if (!routeSteps.length || !textEl) {
     if (banner) banner.classList.remove("show");
