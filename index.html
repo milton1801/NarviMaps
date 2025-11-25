@@ -732,22 +732,114 @@ body.nav-active #mode-box {
         font-size: 11px;
       }
     }
+    /* NEXT INSTRUCTION TOP BANNER */
+.nav-next {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 21;
+  background: rgba(15,23,42,0.96);
+  color: #f9fafb;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+}
+
+.nav-next.show {
+  display: flex;
+}
+
+.nav-next-icon {
+  font-size: 16px;
+}
+
+/* SPEED + LIMIT INSIDE HUD */
+.nav-speed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.nav-speed-pill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(148,163,184,0.7);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-speed-pill strong {
+  font-weight: 700;
+}
+
+/* Different color for speed limit */
+.nav-speed-limit-pill {
+  background: #facc15;
+  color: #111827;
+  border-color: #fbbf24;
+}
+
+/* Voice button */
+.nav-voice-btn {
+  border: none;
+  background: #0f172a;
+  color: #f9fafb;
+  font-size: 16px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.nav-voice-btn.active {
+  background: #22c55e;
+}
+
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- NAV HUD -->
-  <div id="nav-hud" class="nav-hud">
-    <div class="nav-main">
-      <div class="nav-line">
-        <span class="nav-distance">0.0 mi</span> •
-        <span class="nav-eta">0 min</span>
-      </div>
-      <div class="nav-arrival">Arrive ~ --:--</div>
+  <!-- NEXT INSTRUCTION BANNER -->
+<div id="nav-next" class="nav-next">
+  <span class="nav-next-icon">⬆️</span>
+  <span id="nav-next-text">Next: --</span>
+</div>
+
+
+
+ <!-- NAV HUD -->
+<div id="nav-hud" class="nav-hud">
+  <div class="nav-main">
+    <div class="nav-line">
+      <span class="nav-distance">0.0 mi</span> •
+      <span class="nav-eta">0 min</span>
     </div>
-    <button id="nav-exit" class="nav-exit">End</button>
+    <div class="nav-arrival">Arrive ~ --:--</div>
   </div>
+
+  <div class="nav-speed">
+    <div class="nav-speed-pill">
+      <span>Speed</span>
+      <strong><span id="nav-speed-value">0</span> mph</strong>
+    </div>
+    <div class="nav-speed-pill nav-speed-limit-pill">
+      <span>Limit</span>
+      <strong><span id="nav-speed-limit">--</span> mph</strong>
+    </div>
+  </div>
+
+  <button id="nav-voice-toggle" class="nav-voice-btn" title="Voice directions">🔈</button>
+  <button id="nav-exit" class="nav-exit">End</button>
+</div>
+
 
   <!-- LEFT PANEL -->
   <div class="panel" id="left-panel">
@@ -842,12 +934,20 @@ body.nav-active #mode-box {
     const state = { from: null, to: null };
 
     let currentMode = "drive";
-    let modeBoxReady = false;
-    let lastRouteInfo = null;
-    let navActive = false;
-    let navWatchId = null;
-    let navLastUpdateTs = 0;
-    let navMarker = null;
+let modeBoxReady = false;
+let lastRouteInfo = null;
+let navActive = false;
+let navWatchId = null;
+let navLastUpdateTs = 0;
+let navMarker = null;
+
+// Nuevos: ruta / pasos / velocidad / voz
+let routeLineCoords = [];
+let routeSteps = [];
+let currentStepIndex = 0;
+let lastNavPos = null;
+let voiceEnabled = false;
+
 
 
     /* MAP INIT */
@@ -1004,6 +1104,8 @@ body.nav-active #mode-box {
         refreshNavHUD();
       } catch (e) {
         console.warn("nav update failed", e);
+        updateRemainingFromPosition(latitude, longitude);
+
       }
     }
 
@@ -1106,6 +1208,11 @@ body.nav-active #mode-box {
       const leg = props.legs?.[0] || null;
       const steps = Array.isArray(leg?.steps) ? leg.steps : [];
       let drewSegments = false;
+
+      routeLineCoords = lineCoords;
+      routeSteps = steps;
+      currentStepIndex = 0;
+
 
       if (mode === "drive" && steps.length &&
           typeof steps[0]?.from_index === "number" && typeof steps[0]?.to_index === "number" &&
@@ -1258,6 +1365,14 @@ body.nav-active #mode-box {
     function enterNavigationMode() {
   if (!lastRouteInfo || navActive) return;
   navActive = true;
+  lastNavPos = null; // reset para cálculo de velocidad
+  const banner = document.getElementById("nav-next");
+  if (banner) banner.classList.add("show");
+  if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
+    updateUpcomingInstruction(state.from.lat, state.from.lon);
+    maybeSpeakUpcoming();
+  }
+
 
   // Mark body as "nav mode" → CSS hides the big boxes
   document.body.classList.add("nav-active");
@@ -1294,6 +1409,13 @@ body.nav-active #mode-box {
     } else {
       navMarker.setLngLat(startLngLat);
     }
+    const banner = document.getElementById("nav-next");
+  if (banner) banner.classList.remove("show");
+
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+
 
     map.easeTo({
       center: startLngLat,
@@ -1551,6 +1673,138 @@ function renderRecents() {
       const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
       return 2 * R * Math.asin(Math.sqrt(a));
     }
+    // Distancia en metros entre dos puntos
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Punto de referencia de un step (usamos from_index)
+function getStepAnchorCoords(step) {
+  if (!routeLineCoords.length || typeof step.from_index !== "number") return null;
+  const idx = Math.max(0, Math.min(step.from_index, routeLineCoords.length - 1));
+  const [lon, lat] = routeLineCoords[idx];
+  return { lat, lon };
+}
+
+// Actualizar mph actuales
+function updateSpeedFromPosition(lat, lon) {
+  const now = Date.now();
+  if (!lastNavPos) {
+    lastNavPos = { lat, lon, t: now };
+    return;
+  }
+  const dt = (now - lastNavPos.t) / 1000;
+  if (dt < 1) return; // muy seguido, ignoramos
+  const d = distanceMeters(lat, lon, lastNavPos.lat, lastNavPos.lon);
+  lastNavPos = { lat, lon, t: now };
+
+  const mps = d / dt;
+  const mph = mps * 2.23694;
+
+  const speedEl = document.getElementById("nav-speed-value");
+  if (speedEl) {
+    speedEl.textContent = Math.round(mph);
+  }
+}
+
+// Voz
+function speakInstruction(text) {
+  if (!("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const ut = new SpeechSynthesisUtterance(text);
+    // Puedes cambiar a "es-US" si quieres español
+    ut.lang = "en-US";
+    window.speechSynthesis.speak(ut);
+  } catch (e) {
+    console.warn("speech error", e);
+  }
+}
+
+function maybeSpeakUpcoming() {
+  if (!voiceEnabled) return;
+  const el = document.getElementById("nav-next-text");
+  if (el && el.textContent) {
+    speakInstruction(el.textContent);
+  }
+}
+
+// Actualizar texto de la siguiente indicación + límite de velocidad
+function updateUpcomingInstruction(lat, lon) {
+  const banner = document.getElementById("nav-next");
+  const textEl = document.getElementById("nav-next-text");
+  const limitEl = document.getElementById("nav-speed-limit");
+
+  if (!routeSteps.length || !textEl) {
+    if (banner) banner.classList.remove("show");
+    if (limitEl) limitEl.textContent = "--";
+    return;
+  }
+
+  if (banner && navActive) banner.classList.add("show");
+
+  let step = routeSteps[currentStepIndex];
+  if (!step) {
+    textEl.textContent = "Arriving at destination";
+    if (limitEl) limitEl.textContent = "--";
+    return;
+  }
+
+  // Pasar al siguiente step si ya estamos muy cerca del punto de ancla
+  const anchor = getStepAnchorCoords(step);
+  if (anchor) {
+    const dist = distanceMeters(lat, lon, anchor.lat, anchor.lon);
+
+    if (dist < 40 && currentStepIndex < routeSteps.length - 1) {
+      currentStepIndex++;
+      step = routeSteps[currentStepIndex];
+      maybeSpeakUpcoming();
+    }
+  }
+
+  const anchor2 = getStepAnchorCoords(step);
+  let distText = "";
+  if (anchor2) {
+    const dMeters = distanceMeters(lat, lon, anchor2.lat, anchor2.lon);
+    const dMiles = dMeters / 1609.344;
+    if (dMiles < 0.1) {
+      distText = "Now";
+    } else {
+      distText = `In ${dMiles.toFixed(1)} mi`;
+    }
+  }
+
+  const instr =
+    (step.instruction && (step.instruction.text || step.instruction)) ||
+    step.text ||
+    step.name ||
+    step.street ||
+    "Continue";
+
+  textEl.textContent = distText && distText !== "Now"
+    ? `${distText}: ${instr}`
+    : instr;
+
+  // Límite de velocidad aproximado (Geoapify suele dar km/h)
+  if (limitEl) {
+    const raw = step.speed || step.free_flow_speed;
+    if (typeof raw === "number") {
+      const mph = Math.round(raw * 0.621371); // km/h → mph (aprox)
+      limitEl.textContent = mph;
+    } else {
+      limitEl.textContent = "--";
+    }
+  }
+}
+
 
     function choosePoiOrigin() {
       if (state.from && typeof state.from.lat === "number" && typeof state.from.lon === "number") {
@@ -1864,6 +2118,21 @@ function renderRecents() {
       if (navExit) {
         navExit.addEventListener("click", exitNavigationMode);
       }
+      const voiceBtn = document.getElementById("nav-voice-toggle");
+      if (voiceBtn) {
+        voiceBtn.addEventListener("click", () => {
+          voiceEnabled = !voiceEnabled;
+          voiceBtn.classList.toggle("active", voiceEnabled);
+          voiceBtn.textContent = voiceEnabled ? "🔊" : "🔈";
+
+          if (!voiceEnabled && "speechSynthesis" in window) {
+            window.speechSynthesis.cancel();
+          } else if (voiceEnabled && navActive) {
+            maybeSpeakUpcoming();
+          }
+        });
+      }
+
     });
 
     // Ask for location as soon as the app loads
