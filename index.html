@@ -545,23 +545,21 @@ body.nav-active #mode-box {
 
     /* NAV HUD (bottom bar) */
     .nav-hud {
-      position: fixed;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 8px 12px;
-      background: rgba(15,23,42,0.96);
-      color: #f9fafb;
-      border-radius: 999px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-      font-size: 13px;
-      min-width: 70%;
-    }
+  padding: 14px 20px;
+  font-size: 16px;
+  min-width: 90%;
+  border-radius: 22px;
+}
+
+.nav-line {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.nav-arrival {
+  font-size: 15px;
+}
+
 
     .nav-hud.show {
       display: flex;
@@ -733,30 +731,17 @@ body.nav-active #mode-box {
       }
     }
     /* NEXT INSTRUCTION TOP BANNER */
-.nav-next {
-  position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 21;
-  background: rgba(15,23,42,0.96);
-  color: #f9fafb;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.35);
-}
-
-.nav-next.show {
-  display: flex;
+    .nav-next {
+  padding: 14px 22px;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 18px;
 }
 
 .nav-next-icon {
-  font-size: 16px;
+  font-size: 22px;
 }
+
 
 /* SPEED + LIMIT INSIDE HUD */
 .nav-speed {
@@ -1398,12 +1383,15 @@ let voiceEnabled = false;
           if (dirWrapper) dirWrapper.style.display = "none";
         } else {
           const html = steps.map((s, i) => {
-            const instr = (s.instruction && (s.instruction.text || s.instruction)) ||
-                          s.text || s.name || s.street || "Step";
-            const distM = s.distance ?? 0;
-            const dist = distM ? `${(distM/1609.344).toFixed(2)} mi` : "";
-            return `<li>${i+1}. ${instr}${dist ? `<small>${dist}</small>` : ""}</li>`;
-          }).join("");
+            let road = step.instruction?.name || step.name || step.street || "";
+let action = step.instruction?.text || step.text || "Continue";
+
+if (road) {
+  instr = `${action} onto ${road}`;
+} else {
+  instr = action;
+}
+
 
           dirBox.innerHTML = `<ol>${html}</ol>`;
           if (dirWrapper) {
@@ -1411,6 +1399,7 @@ let voiceEnabled = false;
             dirWrapper.scrollTop = 0;
           }
         }
+        )}
       }
     }
 
