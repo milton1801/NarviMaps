@@ -543,52 +543,58 @@ body.nav-active #mode-box {
       color: #111827;
     }
 
-    /* NAV HUD (bottom bar) */
-    .nav-hud {
+/* NAV HUD (bottom bar) */
+.nav-hud {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 14px 20px;
+  background: rgba(15,23,42,0.96);
+  color: #f9fafb;
+  border-radius: 24px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.40);
   font-size: 16px;
   min-width: 90%;
-  border-radius: 22px;
+}
+
+.nav-hud.show {
+  display: flex;
+}
+
+.nav-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .nav-line {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .nav-arrival {
   font-size: 15px;
+  color: #e5e7eb;
 }
 
+.nav-exit {
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
 
-    .nav-hud.show {
-      display: flex;
-    }
-
-    .nav-main {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .nav-line {
-      font-weight: 600;
-    }
-
-    .nav-arrival {
-      font-size: 12px;
-      color: #e5e7eb;
-    }
-
-    .nav-exit {
-      border: none;
-      background: #ef4444;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 6px 10px;
-      border-radius: 999px;
-      cursor: pointer;
-    }
+  
 
     /* PHONE LAYOUT */
     @media (max-width: 600px) {
@@ -708,27 +714,27 @@ body.nav-active #mode-box {
         max-height: 220px;
         font-size: 13px;
       }
-
       .nav-hud {
-        min-width: 92%;
+        min-width: 96%;
         bottom: 12px;
-        font-size: 12px;
-        padding: 6px 10px;
+        font-size: 15px;
+        padding: 12px 16px;
       }
 
       .nav-main {
         flex-direction: row;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
       }
 
       .nav-line {
-        font-size: 12px;
+        font-size: 16px;
       }
 
       .nav-arrival {
-        font-size: 11px;
+        font-size: 14px;
       }
+
     }
     /* NEXT INSTRUCTION TOP BANNER */
     .nav-next {
@@ -1383,15 +1389,25 @@ let voiceEnabled = false;
           if (dirWrapper) dirWrapper.style.display = "none";
         } else {
           const html = steps.map((s, i) => {
-            let road = step.instruction?.name || step.name || step.street || "";
-let action = step.instruction?.text || step.text || "Continue";
+            const distM = s.distance ?? 0;
+            const distMiles = distM ? (distM / 1609.344).toFixed(2) : "";
 
-if (road) {
-  instr = `${action} onto ${road}`;
-} else {
-  instr = action;
-}
+            const road =
+              s.instruction?.name ||
+              s.name ||
+              s.street ||
+              "";
 
+            const action =
+              s.instruction?.text ||
+              s.text ||
+              "Continue";
+
+            const line = road ? `${action} onto ${road}` : action;
+            const distText = distMiles ? `<small>${distMiles} mi</small>` : "";
+
+            return `<li>${i + 1}. ${line} ${distText}</li>`;
+          }).join("");
 
           dirBox.innerHTML = `<ol>${html}</ol>`;
           if (dirWrapper) {
@@ -1399,22 +1415,27 @@ if (road) {
             dirWrapper.scrollTop = 0;
           }
         }
-        )}
-      }
-    }
+        }
+      };  
+    
+         
+    
 
-    function enterNavigationMode() {
+      function enterNavigationMode() {
   if (!lastRouteInfo || navActive) return;
   navActive = true;
   lastNavPos = null; // reset para cálculo de velocidad
-  const banner = document.getElementById("nav-next");
-  if (banner) banner.classList.add("show");
-  
-    
 
+  // hide banner for now; updateUpcomingInstruction will show it
+  const banner = document.getElementById("nav-next");
+  if (banner) banner.classList.remove("show");
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
 
   // Mark body as "nav mode" → CSS hides the big boxes
   document.body.classList.add("nav-active");
+
 
   // Hide main panel explicitly too (extra safety)
   const panel = document.getElementById("left-panel");
@@ -1448,12 +1469,8 @@ if (road) {
     } else {
       navMarker.setLngLat(startLngLat);
     }
-    const banner = document.getElementById("nav-next");
-  if (banner) banner.classList.remove("show");
-
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
+    
+  
 
 
     map.easeTo({
@@ -1834,12 +1851,19 @@ function updateUpcomingInstruction(lat, lon) {
     }
   }
 
-  const instr =
-    (step.instruction && (step.instruction.text || step.instruction)) ||
-    step.text ||
+  const road =
+    step.instruction?.name ||
     step.name ||
     step.street ||
+    "";
+
+  const action =
+    step.instruction?.text ||
+    step.text ||
     "Continue";
+
+  const instr = road ? `${action} onto ${road}` : action;
+
 
   textEl.textContent = distText && distText !== "Now"
     ? `${distText}: ${instr}`
